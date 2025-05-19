@@ -1,4 +1,3 @@
-# Use official PHP 8.1 FPM image
 FROM php:8.1-fpm
 
 # Install system dependencies
@@ -19,18 +18,23 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Set working directory
 WORKDIR /var/www
 
-# Copy app files
+# Copy only composer files first to optimize cache
+COPY composer.json composer.lock ./
+
+# Run composer install
+RUN composer install --no-interaction --prefer-dist --no-dev --optimize-autoloader
+
+# Copy the rest of the application
 COPY . .
 
-# Install Laravel dependencies
-RUN composer install --no-dev --optimize-autoloader
+# Create required Laravel directories
+RUN mkdir -p storage/logs bootstrap/cache
 
-# Set correct permissions
-RUN chown -R www-data:www-data /var/www \
-    && chmod -R 755 /var/www/storage
+# Set permissions
+RUN chown -R www-data:www-data /var/www && chmod -R 775 storage bootstrap/cache
 
-# Expose port 8000
+# Expose port
 EXPOSE 8000
 
-# Start Laravel app using Artisan serve
+# Start Laravel using built-in server
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
